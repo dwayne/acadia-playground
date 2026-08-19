@@ -18,6 +18,7 @@
         packages = [
           acadia
           elm
+          pkgs.caddy
         ];
 
         shellHook = ''
@@ -38,9 +39,16 @@
               acadia serve --html=index.html)
           }
 
+          serve-todos () {
+            (cd "$PROJECT_ROOT/todos" && \
+              elm make src/Main.elm --output=src/app.js && \
+              caddy run)
+          }
+
           alias s1='serve 01-foods'
           alias s2='serve 02-origin'
           alias s3='serve 03-users'
+          alias st='serve-todos'
         '';
       };
     };

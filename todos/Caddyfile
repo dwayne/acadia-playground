@@ -1,0 +1,10 @@
+:8000
+
+root * src/
+
+try_files {path} /
+
+file_server {
+  browse
+  precompressed br gzip
+}

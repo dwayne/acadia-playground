@@ -20,4 +20,7 @@ s2
 
 # Serve examples/03-users
 s3
+
+# Serve todos
+st
 ```
