@@ -9,6 +9,7 @@
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
       acadia = pkgs.callPackage ./nix/acadia.nix {};
+      elm = pkgs.callPackage ./nix/elm.nix {};
     in
     {
       devShells.${system}.default = pkgs.mkShell {
@@ -16,7 +17,7 @@
 
         packages = [
           acadia
-          pkgs.elmPackages.elm
+          elm
         ];
 
         shellHook = ''
