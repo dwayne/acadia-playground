@@ -41,8 +41,29 @@
 
           serve-todos () {
             (cd "$PROJECT_ROOT/todos" && \
-              elm make src/Main.elm --output=src/app.js && \
-              caddy run)
+              acadia make --gen-elm=gen/ && \
+              elm make src/Main.elm --debug --output=src/app.js && \
+              replace-with-contents-of-app-js && \
+              acadia serve --html=src/index.html)
+          }
+
+          replace-with-contents-of-app-js () {
+            sed -i -n '
+            \|^// START APP\.JS$|,\|^// END APP\.JS$| {
+                \|^// START APP\.JS$| {
+                    p
+                    r src/app.js
+                    a\
+
+                    d
+                }
+                \|^// END APP\.JS$| {
+                    p
+                }
+                d
+            }
+            p
+            ' src/index.html
           }
 
           alias s1='serve 01-foods'

@@ -1,0 +1,80 @@
+database module Backend exposing
+    ( endpoint getEntries
+    , endpoint addEntry
+    , endpoint removeEntry
+    , endpoint setCompletedEntry
+    , endpoint setDescriptionEntry
+    )
+
+
+import Cookies exposing (Cookies)
+import Rows exposing (Rows)
+import Security
+import Sequence as Seq exposing (Sequence)
+
+
+type alias Entry =
+    { id : EntryId
+    , description : String
+    , completed : Bool
+    }
+
+
+type EntryId
+    = EntryId UInt64
+
+
+entries : Table Security.Unrestricted Entry
+entries :=
+    Table.table
+        { primary = .id
+        , security = Security.unrestricted
+        , indexes = []
+        , constraints = []
+        }
+
+
+entryIds : Sequence EntryId
+entryIds :=
+  Seq.uint64 EntryId
+
+
+getEntries : Cookies -> Transaction (Rows Entry)
+getEntries _ =
+  Table.access entries Security.Unrestricted
+    |> Rows.selectAll
+
+
+addEntry : Cookies -> String -> Bool -> Transaction Entry
+addEntry _ description completed =
+    let
+        id := Seq.next entryIds
+
+        entry =
+            { id = id
+            , description = description
+            , completed = completed
+            }
+    in
+    Table.insert entries Security.Unrestricted entry
+        |> Transaction.andThen (always <| Transaction.succeed entry)
+
+
+removeEntry : Cookies -> EntryId -> Transaction ()
+removeEntry _ id =
+    Table.remove entries Security.Unrestricted
+        (\entry -> entry.id == id)
+
+
+setCompletedEntry : Cookies -> EntryId -> Bool -> Transaction ()
+setCompletedEntry _ id completed =
+    Table.update entries Security.Unrestricted
+        (\entry -> entry.id == id)
+        (\entry -> { entry | completed = completed })
+
+
+setDescriptionEntry : Cookies -> EntryId -> String -> Transaction ()
+setDescriptionEntry _ id description =
+    Table.update entries Security.Unrestricted
+        (\entry -> entry.id == id)
+        (\entry -> { entry | description = description })

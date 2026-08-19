@@ -1,4 +1,4 @@
-port module Main exposing (main)
+module Main exposing (main)
 
 import Browser as B
 import Browser.Dom as BD
@@ -7,16 +7,19 @@ import Html as H
 import Html.Attributes as HA
 import Html.Events as HE
 import Json.Decode as JD
-import Json.Encode as JE
 import Task
 import Url exposing (Url)
+
+import Backend exposing (Entry, EntryId(..))
+import Acadia.Transaction as Txn
+import Acadia.UInt64 as UInt64
 
 
 main : Program Flags Model Msg
 main =
     B.application
         { init = init
-        , update = updateAndSave
+        , update = update
         , view = view
         , subscriptions = always Sub.none
         , onUrlRequest = ClickedLink
@@ -31,7 +34,6 @@ main =
 type alias Model =
     { url : Url
     , key : BN.Key
-    , uid : Int
     , description : String
     , mode : Mode
     , visibility : Visibility
@@ -41,14 +43,7 @@ type alias Model =
 
 type Mode
     = Normal
-    | Edit Int String
-
-
-type alias Entry =
-    { uid : Int
-    , description : String
-    , completed : Bool
-    }
+    | Edit EntryId String
 
 
 type Visibility
@@ -58,22 +53,13 @@ type Visibility
 
 
 type alias Flags =
-    JE.Value
+    ()
 
 
-init : Flags -> Url -> BN.Key -> ( Model, Cmd msg )
-init data url key =
-    let
-        initModel =
-            Model url key 0 "" Normal (toVisibility url) []
-    in
-    ( case JD.decodeValue (modelDecoder url key) data of
-        Ok (Just model) ->
-            model
-
-        _ ->
-            initModel
-    , Cmd.none
+init : Flags -> Url -> BN.Key -> ( Model, Cmd Msg )
+init _ url key =
+    ( Model url key "" Normal (toVisibility url) []
+    , Txn.attempt "/_endpoints" GotEntries Backend.getEntries
     )
 
 
@@ -86,30 +72,21 @@ type Msg
     | ChangedUrl Url
     | ChangedDescription String
     | SubmittedDescription
-    | CheckedEntry Int Bool
-    | ClickedRemoveButton Int
+    | CheckedEntry EntryId Bool
+    | ClickedRemoveButton EntryId
     | CheckedMarkAllCompleted Bool
     | ClickedRemoveCompletedEntriesButton
-    | DoubleClickedDescription Int String
-    | ChangedEntryDescription Int String
+    | DoubleClickedDescription EntryId String
+    | ChangedEntryDescription EntryId String
     | SubmittedEditedDescription
     | FocusedEntry
     | BlurredEntry
     | EscapedEntry
-
-
-updateAndSave : Msg -> Model -> ( Model, Cmd Msg )
-updateAndSave msg model =
-    let
-        ( nextModel, cmd ) =
-            update msg model
-    in
-    ( nextModel
-    , Cmd.batch
-        [ cmd
-        , save (encodeModel nextModel)
-        ]
-    )
+    | GotEntries (Maybe (List Entry))
+    | AddedEntry (Maybe Entry)
+    | RemovedEntry EntryId (Maybe ())
+    | SetCompletedEntry EntryId Bool (Maybe ())
+    | SetDescriptionEntry EntryId String (Maybe ())
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -148,55 +125,51 @@ update msg model =
                 )
 
             else
-                ( { model
-                    | uid = model.uid + 1
-                    , description = ""
-                    , entries = model.entries ++ [ Entry model.uid cleanDescription False ]
-                  }
-                , Cmd.none
+                ( { model | description = "" }
+                , Txn.attempt "/_endpoints" AddedEntry (Backend.addEntry cleanDescription False)
                 )
 
-        CheckedEntry uid isChecked ->
-            let
-                updateEntry entry =
-                    if uid == entry.uid then
-                        { entry | completed = isChecked }
-
-                    else
-                        entry
-            in
-            ( { model | entries = List.map updateEntry model.entries }
-            , Cmd.none
+        CheckedEntry id isChecked ->
+            ( model
+            , Txn.attempt "/_endpoints" (SetCompletedEntry id isChecked) (Backend.setCompletedEntry id isChecked)
             )
 
-        ClickedRemoveButton uid ->
-            ( { model
-                | entries = List.filter (\entry -> entry.uid /= uid) model.entries
-              }
-            , Cmd.none
+        ClickedRemoveButton id ->
+            ( model
+            , Txn.attempt "/_endpoints" (RemovedEntry id) (Backend.removeEntry id)
             )
 
         CheckedMarkAllCompleted isChecked ->
-            let
-                updateEntry entry =
-                    { entry | completed = isChecked }
-            in
-            ( { model | entries = List.map updateEntry model.entries }
-            , Cmd.none
-            )
+            --
+            -- FIXME: It is not currently possible to update an arbitrary number of entries in one transaction.
+            --
+            --let
+            --    updateEntry entry =
+            --        { entry | completed = isChecked }
+            --in
+            --( { model | entries = List.map updateEntry model.entries }
+            --, Cmd.none
+            --)
+            --
+            ( model, Cmd.none )
 
         ClickedRemoveCompletedEntriesButton ->
-            ( { model | entries = List.filter (not << .completed) model.entries }
-            , Cmd.none
+            --
+            -- FIXME: It is not currently possible to update an arbitrary number of entries in one transaction.
+            --
+            --( { model | entries = List.filter (not << .completed) model.entries }
+            --, Cmd.none
+            --)
+            --
+            ( model, Cmd.none )
+
+        DoubleClickedDescription id description ->
+            ( { model | mode = Edit id description }
+            , focus (entryEditId id) FocusedEntry
             )
 
-        DoubleClickedDescription uid description ->
-            ( { model | mode = Edit uid description }
-            , focus (entryEditId uid) FocusedEntry
-            )
-
-        ChangedEntryDescription uid description ->
-            ( { model | mode = Edit uid description }
+        ChangedEntryDescription id description ->
+            ( { model | mode = Edit id description }
             , Cmd.none
             )
 
@@ -207,23 +180,20 @@ update msg model =
                     , Cmd.none
                     )
 
-                Edit uid description ->
+                Edit id description ->
                     let
                         cleanDescription =
                             String.trim description
                     in
                     if String.isEmpty cleanDescription then
-                        ( { model
-                            | mode = Normal
-                            , entries = List.filter (\entry -> entry.uid /= uid) model.entries
-                          }
-                        , Cmd.none
+                        ( { model | mode = Normal }
+                        , Txn.attempt "/_endpoints" (RemovedEntry id) (Backend.removeEntry id)
                         )
 
                     else
                         let
                             updateEntry entry =
-                                if uid == entry.uid then
+                                if id == entry.id then
                                     { entry | description = cleanDescription }
 
                                 else
@@ -233,7 +203,7 @@ update msg model =
                             | mode = Normal
                             , entries = List.map updateEntry model.entries
                           }
-                        , Cmd.none
+                        , Txn.attempt "/_endpoints" (SetDescriptionEntry id cleanDescription) (Backend.setDescriptionEntry id cleanDescription)
                         )
 
         FocusedEntry ->
@@ -251,53 +221,73 @@ update msg model =
             , Cmd.none
             )
 
+        GotEntries maybeEntries ->
+            ( case maybeEntries of
+                Just entries ->
+                    { model | entries = entries }
 
+                Nothing ->
+                    model
+            , Cmd.none
+            )
 
--- PORTS
+        AddedEntry maybeEntry ->
+            ( case maybeEntry of
+                Just entry ->
+                    { model | entries = model.entries ++ [ entry ] }
 
+                Nothing ->
+                    model
+            , Cmd.none
+            )
 
-port save : JE.Value -> Cmd msg
+        RemovedEntry id maybeUnit ->
+            ( case maybeUnit of
+                Just () ->
+                    { model
+                        | entries = List.filter (\entry -> entry.id /= id) model.entries
+                    }
 
+                Nothing ->
+                    model
+            , Cmd.none
+            )
 
+        SetCompletedEntry id isChecked maybeUnit ->
+            ( case maybeUnit of
+                Just () ->
+                    let
+                        updateEntry entry =
+                            if id == entry.id then
+                                { entry | completed = isChecked }
 
--- ENCODERS
+                            else
+                                entry
+                    in
+                    { model | entries = List.map updateEntry model.entries }
 
+                Nothing ->
+                    model
+            , Cmd.none
+            )
 
-encodeModel : Model -> JE.Value
-encodeModel { uid, entries } =
-    JE.object
-        [ ( "uid", JE.int uid )
-        , ( "entries", JE.list encodeEntry entries )
-        ]
+        SetDescriptionEntry id cleanDescription maybeUnit ->
+            ( case maybeUnit of
+                Just () ->
+                    let
+                        updateEntry entry =
+                            if id == entry.id then
+                                { entry | description = cleanDescription }
 
+                            else
+                                entry
+                    in
+                    { model | entries = List.map updateEntry model.entries }
 
-encodeEntry : Entry -> JE.Value
-encodeEntry { uid, description, completed } =
-    JE.object
-        [ ( "uid", JE.int uid )
-        , ( "description", JE.string description )
-        , ( "completed", JE.bool completed )
-        ]
-
-
-
--- DECODERS
-
-
-modelDecoder : Url -> BN.Key -> JD.Decoder (Maybe Model)
-modelDecoder url key =
-    JD.nullable <|
-        JD.map2 (\uid entries -> Model url key uid "" Normal (toVisibility url) entries)
-            (JD.field "uid" JD.int)
-            (JD.field "entries" <| JD.list entryDecoder)
-
-
-entryDecoder : JD.Decoder Entry
-entryDecoder =
-    JD.map3 Entry
-        (JD.field "uid" JD.int)
-        (JD.field "description" JD.string)
-        (JD.field "completed" JD.bool)
+                Nothing ->
+                    model
+            , Cmd.none
+            )
 
 
 
@@ -379,44 +369,44 @@ viewEntry mode entry =
         Normal ->
             viewEntryNormal entry
 
-        Edit uid description ->
-            if uid == entry.uid then
-                viewEntryEdit uid description
+        Edit id description ->
+            if id == entry.id then
+                viewEntryEdit id description
 
             else
                 viewEntryNormal entry
 
 
 viewEntryNormal : Entry -> H.Html Msg
-viewEntryNormal { uid, description, completed } =
+viewEntryNormal { id, description, completed } =
     H.div [ HA.class "view" ]
         [ H.input
             [ HA.type_ "checkbox"
             , HA.checked completed
             , HA.class "toggle"
-            , HE.onCheck (CheckedEntry uid)
+            , HE.onCheck (CheckedEntry id)
             ]
             []
-        , H.label [ HE.onDoubleClick (DoubleClickedDescription uid description) ]
+        , H.label [ HE.onDoubleClick (DoubleClickedDescription id description) ]
             [ H.text description ]
         , H.button
             [ HA.type_ "button"
             , HA.class "destroy"
-            , HE.onClick (ClickedRemoveButton uid)
+            , HE.onClick (ClickedRemoveButton id)
             ]
             []
         ]
 
 
-viewEntryEdit : Int -> String -> H.Html Msg
-viewEntryEdit uid description =
+viewEntryEdit : EntryId -> String -> H.Html Msg
+viewEntryEdit id description =
     H.form [ HE.onSubmit SubmittedEditedDescription ]
         [ H.input
             [ HA.type_ "text"
-            , HA.id (entryEditId uid)
+            , HA.id (entryEditId id)
             , HA.value description
             , HA.class "edit"
-            , HE.onInput (ChangedEntryDescription uid)
+            , HE.onInput (ChangedEntryDescription id)
             , HE.onBlur BlurredEntry
             , onEsc EscapedEntry
             ]
@@ -506,9 +496,9 @@ toVisibility url =
             All
 
 
-entryEditId : Int -> String
-entryEditId uid =
-    "entry-edit-" ++ String.fromInt uid
+entryEditId : EntryId -> String
+entryEditId (EntryId id) =
+    "entry-edit-" ++ UInt64.toString id
 
 
 isEditing : Mode -> Entry -> Bool
@@ -517,8 +507,8 @@ isEditing mode entry =
         Normal ->
             False
 
-        Edit uid _ ->
-            uid == entry.uid
+        Edit id _ ->
+            id == entry.id
 
 
 keep : Visibility -> List Entry -> List Entry
