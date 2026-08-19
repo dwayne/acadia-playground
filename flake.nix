@@ -30,6 +30,17 @@
             cp -r ${acadia-engineering-examples}/. "$examples"
             chmod -R u+w "$examples"
           fi
+
+          serve () {
+            (cd "$examples/''${1:?}" && \
+              acadia make --gen-elm=gen/ && \
+              elm make src/Main.elm && \
+              acadia serve --html=index.html)
+          }
+
+          alias s1='serve 01-foods'
+          alias s2='serve 02-origin'
+          alias s3='serve 03-users'
         '';
       };
     };
