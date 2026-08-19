@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "acadia-engineering-examples": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786993449,
+        "narHash": "sha256-DVfMCy98aWdxnxKW0sW5Q5rP+fMJS2kua6qpGuLuOnk=",
+        "owner": "acadia-engineering",
+        "repo": "examples",
+        "rev": "dc28e9aecd1b9749c33e5cfe6241968ee114ba1b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "acadia-engineering",
+        "repo": "examples",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1787111413,
@@ -15,6 +31,7 @@
     },
     "root": {
       "inputs": {
+        "acadia-engineering-examples": "acadia-engineering-examples",
         "nixpkgs": "nixpkgs"
       }
     }
