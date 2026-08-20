@@ -18,7 +18,6 @@
         packages = [
           acadia
           elm
-          pkgs.caddy
         ];
 
         shellHook = ''
