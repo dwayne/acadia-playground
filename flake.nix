@@ -10,18 +10,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
       acadia = pkgs.callPackage ./nix/acadia.nix {};
       elm = pkgs.callPackage ./nix/elm.nix {};
-
-      acadia-engineering-examples-patched = pkgs.applyPatches {
-        name = "acadia-engineering-examples-patched";
-        src = acadia-engineering-examples;
-
-        postPatch = ''
-          for f in */elm.json; do
-            substituteInPlace "$f" \
-              --replace-fail '"elm-version": "0.19.2"' '"elm-version": "0.19.3"'
-          done
-        '';
-      };
+      examples = pkgs.callPackage ./nix/examples.nix { inherit acadia-engineering-examples; };
     in
     {
       devShells.${system}.default = pkgs.mkShell {
@@ -39,7 +28,7 @@
           examples="$PROJECT_ROOT/examples"
           if [ ! -e "$examples" ]; then
             mkdir "$examples"
-            cp -r ${acadia-engineering-examples-patched}/. "$examples"
+            cp -r ${examples}/. "$examples"
             chmod -R u+w "$examples"
           fi
 
