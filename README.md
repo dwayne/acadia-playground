@@ -29,7 +29,7 @@ st
 
 ### Acadia and Elm dependencies managed with Nix
 
-In the [nix](/nix) folder you'd find Nix derivations for Acadia 0.3.0 and Elm 0.19.2. I've only added support for `system = "x86_64-linux"`.
+In the [nix](/nix) folder you'd find Nix derivations for Acadia 0.3.1 and Elm 0.19.3. I've only added support for `system = "x86_64-linux"`.
 
 ### Examples managed as a flake input
 
@@ -56,7 +56,7 @@ The change was easy to make, it works well but two features couldn't be implemen
 
 Evan says:
 
-> ... need to add it. Adding “SQL features” is very easy, so I didn’t block on that.
+> ... need to add it. Adding "SQL features" is very easy, so I didn't block on that.
 
 ### Quirks of todos
 
