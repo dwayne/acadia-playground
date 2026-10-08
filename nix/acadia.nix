@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "acadia";
-  version = "0.3.0";
+  version = "0.3.1";
 
   src = fetchurl {
     url = "https://get.acadia.engineering/acadia-${finalAttrs.version}-linux-x64.gz";
-    hash = "sha256-3KT/RnyxZhe3xfoI+R++T9GxY4DOTJuicRyVcudBMsI=";
+    hash = "sha256-T2DxqP8CAAgQUd78Mqbhafm/PcCsV0sgYt573rbwKf0=";
   };
 
   unpackPhase = ''
