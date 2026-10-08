@@ -1,13 +1,29 @@
 {
   "nodes": {
+    "acadia-engineering-elm-simple-server": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788962653,
+        "narHash": "sha256-QG96F1P1uPRWv6xnMmyAIgZzUPT35fn8VPld/fU4+pQ=",
+        "owner": "acadia-engineering",
+        "repo": "elm-simple-server",
+        "rev": "72f5787d86cc1abd88bbe500dcd8c0b548b520a4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "acadia-engineering",
+        "repo": "elm-simple-server",
+        "type": "github"
+      }
+    },
     "acadia-engineering-examples": {
       "flake": false,
       "locked": {
-        "lastModified": 1786993449,
-        "narHash": "sha256-DVfMCy98aWdxnxKW0sW5Q5rP+fMJS2kua6qpGuLuOnk=",
+        "lastModified": 1791455074,
+        "narHash": "sha256-MpoPujrZZ65/6QeEwQrwW2FtossAVU4fL1v9DspiEaQ=",
         "owner": "acadia-engineering",
         "repo": "examples",
-        "rev": "dc28e9aecd1b9749c33e5cfe6241968ee114ba1b",
+        "rev": "6b7263cfd99c5d3771405bb74d5985936546698d",
         "type": "github"
       },
       "original": {
@@ -31,6 +47,7 @@
     },
     "root": {
       "inputs": {
+        "acadia-engineering-elm-simple-server": "acadia-engineering-elm-simple-server",
         "acadia-engineering-examples": "acadia-engineering-examples",
         "nixpkgs": "nixpkgs"
       }
