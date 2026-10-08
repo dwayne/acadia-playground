@@ -1,5 +1,6 @@
 {
   inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     acadia-engineering-examples = {
       url = "github:acadia-engineering/examples";
       flake = false;
